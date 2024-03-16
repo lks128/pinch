@@ -62,6 +62,7 @@ import           Pinch.Internal.RPC
 import           Pinch.Internal.TType
 
 import qualified Pinch.Transport          as T
+import Debug.Trace
 
 -- | A single request to a thrift server.
 data Request out where
@@ -211,10 +212,13 @@ onError sel callError onewayError srv = ThriftServer $
           ROneway _ -> onewayError e
       )
 
+traceCtx :: Show a => String -> a -> a
+traceCtx ctx a = trace (ctx ++ ": " ++ show a) a
+
 -- | Run a Thrift server for a single connection.
 runConnection :: Context -> ThriftServer -> Channel -> IO ()
 runConnection ctx srv chan = do
-  msg <- readMessage chan
+  msg <- traceCtx "runConnection" <$> readMessage chan
   case msg of
     T.RREOF -> pure ()
     T.RRFailure err -> do

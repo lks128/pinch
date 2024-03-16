@@ -1,4 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Pinch.Transport
   ( Transport(..)
@@ -17,6 +18,7 @@ import qualified Data.ByteString as BS
 import qualified Data.Serialize.Get as G
 
 import qualified Pinch.Internal.Builder as B
+import Debug.Trace
 
 class Connection c where
   -- | Returns available bytes, or an empty bytestring if EOF was reached.
@@ -30,7 +32,7 @@ instance Connection Handle where
 
 instance Connection Socket where
   cPut c b = sendAll c (B.runBuilder b)
-  cGetSome s = recv s 4096
+  cGetSome s = traceCtx "cGetSome" <$> recv s 4096
 
 data ReadResult a
   = RRSuccess a
@@ -56,10 +58,10 @@ framedTransport c = do
     let 
       frameParser = do 
         size <- G.getInt32be
-        G.isolate (fromIntegral size) parser
+        G.isolateLazy (fromIntegral size) parser
     
     initial <- readIORef readBuffer
-    (leftovers, r) <- runGetWith (cGetSome c) frameParser initial
+    (traceCtx "framedTransport leftovers" -> leftovers, r) <- runGetWith (cGetSome c) frameParser initial
     writeIORef readBuffer $! leftovers
     pure r
 
@@ -81,6 +83,9 @@ unframedTransport c = do
       writeIORef buf $! leftovers
       pure r
 
+traceCtx :: Show a => String -> a -> a
+traceCtx ctx a = trace (ctx ++ ": " ++ show a) a
+
 -- | Runs a Get parser incrementally, reading more input as necessary until a successful parse
 -- has been achieved.
 runGetWith :: IO BS.ByteString -> G.Get a -> BS.ByteString -> IO (BS.ByteString, ReadResult a)
@@ -88,11 +93,11 @@ runGetWith getBs p initial = go (G.runGetPartial p initial)
   where
     go r = case r of
       G.Fail err bs -> do
-        pure (bs, RRFailure err)
+        trace ("runGetWith fail: " ++ show err) <$> pure (bs, RRFailure err)
       G.Done a bs -> do
-        pure (bs, RRSuccess a)
+        trace ("runGetWith done: leftovers: " ++ show bs) <$> pure (bs, RRSuccess a)
       G.Partial cont -> do
-        bs <- getBs
+        bs <- traceCtx "runGetWith" <$> getBs
         if BS.null bs
           then
             -- EOF

@@ -34,6 +34,7 @@ import Pinch.Internal.TType
 import Pinch.Internal.Value
 
 import qualified Pinch.Internal.FoldList as FL
+import Debug.Trace
 
 vsome :: IsTType a => Value a -> SomeValue
 vsome = SomeValue

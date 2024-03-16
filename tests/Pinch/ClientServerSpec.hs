@@ -5,6 +5,8 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE ViewPatterns #-}
 module Pinch.ClientServerSpec (spec) where
 
 import           Control.Concurrent       (forkFinally)
@@ -30,9 +32,15 @@ import           Pinch.Client             hiding (client)
 import qualified Pinch.Client             (client)
 import           Pinch.Server
 import           Pinch.Transport
+import Debug.Trace
+
+traceCtx :: Show a => String -> a -> a
+traceCtx ctx a = trace (ctx ++ ": " ++ show a) a
 
 echoServer :: ThriftServer
-echoServer = createServer $ \_ -> Just $ CallHandler $ \_ (r :: Value TStruct) -> do
+echoServer = createServer $ \(traceShowId -> !_) -> Just $ CallHandler $ \_ (r :: Value TStruct) -> do
+  -- traceShow (_ context) pure r
+  !_ <- traceCtx "echo server reply struct" <$> pure r
   pure r
 
 data CalcRequest = CalcRequest
@@ -79,7 +87,7 @@ spec = do
   describe "Client/Server" $ do
     prop "echo test" $ withMaxSuccess 10 $ \(request :: Value TStruct) -> ioProperty $
       withLoopbackServer echoServer $ \client -> do
-        reply <- call client $ TCall "" request
+        reply <- call client $ TCall "call-str" request
         pure $
           reply === request
 

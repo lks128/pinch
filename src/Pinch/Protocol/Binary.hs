@@ -33,6 +33,7 @@ import Pinch.Protocol         (Protocol (..))
 
 import qualified Pinch.Internal.Builder  as BB
 import qualified Pinch.Internal.FoldList as FL
+import Debug.Trace
 
 
 -- | Provides an implementation of the Thrift Binary Protocol.
@@ -56,23 +57,29 @@ binarySerializeMessage msg =
     BB.int32BE (messageId msg) <>
     binarySerialize (messagePayload msg)
 
+traceCtx :: Show a => String -> a -> a
+traceCtx ctx a = trace (ctx ++ ": " ++ show a) a
+
 binaryDeserializeMessage :: G.Get Message
 binaryDeserializeMessage = do
-    size <- G.getInt32be
-    if size < 0
+    size <- traceShowId <$> G.getInt32be
+    !res <- traceCtx "binaryDeserializeMessage" <$> if size < 0
         then parseStrict size
         else parseNonStrict size
+    pure res
   where
     -- versionAndType:4 name~4 seqid:4 payload
     -- versionAndType = version:2 0x00 type:1
     parseStrict versionAndType = do
         unless (version == 1) $
             fail $ "Unsupported version: " ++ show version
-        Message
+        res <- Message
             <$> TE.decodeUtf8 <$> (G.getInt32be >>= G.getBytes . fromIntegral)
             <*> typ
             <*> G.getInt32be
             <*> binaryDeserialize ttype
+        !_ <- traceCtx "parseStrict" <$> pure res
+        pure res
       where
         version = (0x7fff0000 .&. versionAndType) `shiftR` 16
 
@@ -82,12 +89,13 @@ binaryDeserializeMessage = do
             Just t -> return t
 
     -- name~4 type:1 seqid:4 payload
-    parseNonStrict nameLength =
-        Message
+    parseNonStrict nameLength = do
+        res <- Message
             <$> TE.decodeUtf8 <$> G.getBytes (fromIntegral nameLength)
             <*> parseMessageType
             <*> G.getInt32be
             <*> binaryDeserialize ttype
+        pure $ traceShowId res
 
 
 parseMessageType :: G.Get MessageType
@@ -178,7 +186,7 @@ parseStruct :: G.Get (Value TStruct)
 parseStruct = G.getInt8 >>= loop M.empty
   where
     loop :: HashMap Int16 SomeValue -> Int8 -> G.Get (Value TStruct)
-    loop fields    0 = return $ VStruct fields
+    loop fields    0 = traceCtx "parseStruct loop0" <$> return (VStruct fields)
     loop fields code = do
         vtype' <- getTType code
         fieldId <- G.getInt16be

@@ -127,11 +127,11 @@ data Handler where
 -- more gracefully.
 createServer :: (T.Text -> Maybe Handler) -> ThriftServer
 createServer f = ThriftServer $ \ctx req ->
-  case req of
+  case traceCtx "createServer" req of
     RCall msg ->
-      case f $ messageName msg of
+      case trace ("Finding handler for: " ++ show (messageName msg)) $ f $ messageName msg of
         Just (CallHandler f') ->
-          case runParser $ unpinch $ messagePayload msg of
+          case trace "Running server message parser" $ runParser $ unpinch $ messagePayload msg of
             Right args -> do
               ret <- f' ctx args
               pure $ Message

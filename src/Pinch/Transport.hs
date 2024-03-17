@@ -60,7 +60,7 @@ framedTransport c = do
         size <- G.getInt32be
         G.isolateLazy (fromIntegral size) parser
     
-    initial <- readIORef readBuffer
+    initial <- traceCtx "framed read initial" <$> readIORef readBuffer
     (traceCtx "framedTransport leftovers" -> leftovers, r) <- runGetWith (cGetSome c) frameParser initial
     writeIORef readBuffer $! leftovers
     pure r
@@ -89,18 +89,18 @@ traceCtx ctx a = trace (ctx ++ ": " ++ show a) a
 -- | Runs a Get parser incrementally, reading more input as necessary until a successful parse
 -- has been achieved.
 runGetWith :: IO BS.ByteString -> G.Get a -> BS.ByteString -> IO (BS.ByteString, ReadResult a)
-runGetWith getBs p initial = go (G.runGetPartial p initial)
+runGetWith getBs p initial = go 0 (G.runGetPartial p initial)
   where
-    go r = case r of
+    go n r = case r of
       G.Fail err bs -> do
-        trace ("runGetWith fail: " ++ show err) <$> pure (bs, RRFailure err)
+        trace ("runGetWith " ++ show n ++ " fail: " ++ show err) <$> pure (bs, RRFailure err)
       G.Done a bs -> do
-        trace ("runGetWith done: leftovers: " ++ show bs) <$> pure (bs, RRSuccess a)
+        trace ("runGetWith " ++ show n ++ " done: leftovers: " ++ show bs) <$> pure (bs, RRSuccess a)
       G.Partial cont -> do
-        bs <- traceCtx "runGetWith" <$> getBs
+        bs <- traceCtx ("runGetWith " ++ show n) <$> getBs
         if BS.null bs
           then
             -- EOF
             pure (bs, RREOF)
           else
-            go $ cont bs
+            go (succ n) $ cont bs

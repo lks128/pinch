@@ -38,6 +38,7 @@ import           Pinch.Internal.Message
 import           Pinch.Internal.Pinchable
 import           Pinch.Internal.RPC
 import           Pinch.Internal.TType
+import Debug.Trace
 
 -- | A simple Thrift Client.
 newtype Client = Client Channel
@@ -58,16 +59,19 @@ class ThriftClient c where
   -- as part of the result/error data structure.
   call :: c -> ThriftCall a -> IO a
 
+traceCtx :: Show a => String -> a -> a
+traceCtx ctx a = trace (ctx ++ ": " ++ show a) a
+
 instance ThriftClient Client where
   call (Client chan) tcall = do
     case tcall of
       TOneway m r -> do
-        writeMessage chan $ Message m Oneway 0 (pinch r)
+        writeMessage chan $ traceCtx "thriftclient write oneway message" $ Message m Oneway 0 (pinch r)
         pure ()
       TCall m r -> do
-        writeMessage chan $ Message m Call 0 (pinch r)
+        writeMessage chan $ traceCtx "thriftclient write TCall message" $ Message m Call 0 (pinch r)
         reply <- readMessage chan
-        case reply of
+        case traceCtx "thriftclient reply" reply of
           RREOF -> throwIO $ ThriftError $ "Reached EOF while awaiting reply"
           RRFailure err -> throwIO $ ThriftError $ "Could not read message: " <> T.pack err
           RRSuccess reply' -> case messageType reply' of

@@ -126,8 +126,8 @@ data Handler where
 -- terminate the guilty connection. You may use the `onError` combinator to handle this case
 -- more gracefully.
 createServer :: (T.Text -> Maybe Handler) -> ThriftServer
-createServer f = ThriftServer $ \ctx req ->
-  case traceCtx "createServer" req of
+createServer f = trace "Called createServer" $ ThriftServer $ \ctx req ->
+  case traceCtx "createServer got request" req of
     RCall msg ->
       case trace ("Finding handler for: " ++ show (messageName msg)) $ f $ messageName msg of
         Just (CallHandler f') ->

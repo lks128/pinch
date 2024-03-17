@@ -38,7 +38,7 @@ traceCtx :: Show a => String -> a -> a
 traceCtx ctx a = trace (ctx ++ ": " ++ show a) a
 
 echoServer :: ThriftServer
-echoServer = createServer $ \(traceShowId -> !_) -> Just $ CallHandler $ \_ (r :: Value TStruct) -> do
+echoServer = createServer $ \(traceCtx "createServer view" -> !_) -> Just $ CallHandler $ \_ (r :: Value TStruct) -> do
   -- traceShow (_ context) pure r
   !_ <- traceCtx "echo server reply struct" <$> pure r
   pure r

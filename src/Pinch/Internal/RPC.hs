@@ -33,6 +33,10 @@ import           Pinch.Transport          (Connection, ReadResult (..),
                                            Transport)
 
 import qualified Pinch.Transport          as Transport
+import Debug.Trace
+
+traceCtx :: Show a => String -> a -> a
+traceCtx ctx a = trace (ctx ++ ": " ++ show a) a
 
 -- | A bi-directional channel to read/write Thrift messages.
 data Channel = Channel

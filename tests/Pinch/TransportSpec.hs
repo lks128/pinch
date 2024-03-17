@@ -77,7 +77,7 @@ spec = do
       actual `shouldBe` (BS.pack [0x00, 0x00, 0x00, 0x05] <> payload)
 
 
-  describe "unframedTransport" $ do
+  describe "unfrmedTransport" $ do
     transportSpec unframedTransport
 
     prop "read cases" $ \(SomeByteString payload) ->

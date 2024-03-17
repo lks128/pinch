@@ -47,13 +47,16 @@ data Transport
   , readMessage  :: forall a . G.Get a -> IO (ReadResult a)
   }
 
+instance Show B.Builder where
+  show = show . B.runBuilder
+
 -- | Creates a thrift framed transport. See also <https://github.com/apache/thrift/blob/master/doc/specs/thrift-rpc.md#framed-vs-unframed-transport>.
 framedTransport :: Connection c => c -> IO Transport
 framedTransport c = do
   readBuffer <- newIORef mempty
   pure $ Transport writeMsg (readMsg readBuffer) where
   writeMsg msg = do
-    cPut c $ B.int32BE (fromIntegral $ B.getSize msg) <> msg
+    cPut c $ traceCtx "Writing" $ B.int32BE (fromIntegral $ B.getSize msg) <> msg
   readMsg readBuffer parser = do
     let 
       frameParser = do 

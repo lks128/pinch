@@ -92,10 +92,9 @@ binaryDeserializeMessage = trace "binaryDeserializeMessage" $ do
 
     -- name~4 type:1 seqid:4 payload
     parseNonStrict nameLength = trace "PINCH non-strict message" $ do
-        Message
-            <$> parseName nameLength
-            <*> parseMessageType
-            <*> G.getInt32be
+        !name <- parseName nameLength
+        !messageType <- parseMessageType
+        Message name messageType <$> G.getInt32be
             <*> binaryDeserialize ttype
 
 

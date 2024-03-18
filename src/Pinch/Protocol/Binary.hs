@@ -36,6 +36,7 @@ import qualified Pinch.Internal.Builder  as BB
 import qualified Pinch.Internal.FoldList as FL
 import Data.Text (Text)
 import Data.Word (Word8)
+import Debug.Trace
 
 
 -- | Provides an implementation of the Thrift Binary Protocol.
@@ -95,11 +96,15 @@ binaryDeserializeMessage = do
 identifierMaxChunkLen :: Int
 identifierMaxChunkLen = 4096
 
+-- The thrift standard doesn't specify any limitations on the names of methods
+-- but the official compiler has a very restrictive regex defined
+-- [here](https://thrift.apache.org/docs/idl)
 validIdentStart :: Char -> Bool
 validIdentStart '_' = True
 validIdentStart c = C.isAscii c && C.isLetter c
 
 validIdentChar :: Char -> Bool
+validIdentChar ':' = True -- for multiplexing
 validIdentChar '.' = True
 validIdentChar '_' = True
 validIdentChar c = C.isAscii c && (C.isLetter c || C.isDigit c)
@@ -138,7 +143,7 @@ getIdentifier n = do
       pure bs
 
 parseMessageType :: G.Get MessageType
-parseMessageType = G.getInt8 >>= \code -> case fromMessageCode code of
+parseMessageType = G.getInt8 >>= \code -> trace ("message type: " ++ show code) $ case fromMessageCode code of
     Nothing -> fail $ "Unknown message type: " ++ show code
     Just t -> return t
 

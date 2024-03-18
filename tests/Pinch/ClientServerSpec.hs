@@ -79,7 +79,7 @@ spec = do
   describe "Client/Server" $ do
     prop "echo test" $ withMaxSuccess 10 $ \(request :: Value TStruct) -> ioProperty $
       withLoopbackServer echoServer $ \client -> do
-        reply <- call client $ TCall "" request
+        reply <- call client $ TCall "hi" request
         pure $
           reply === request
 
@@ -117,7 +117,7 @@ spec = do
         r1 `shouldBe` CalcResult (Field $ Just 30) (Field Nothing)
 
         let payload = struct [1 .= True, 2 .= ("Hello" :: Text)]
-        r2 <- call (multiplexClient client "echo") $ TCall "" payload
+        r2 <- call (multiplexClient client "echo") $ TCall "hello" payload
         r2 `shouldBe` payload
 
     it "exceptions" $ do

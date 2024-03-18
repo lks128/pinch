@@ -36,7 +36,6 @@ import qualified Pinch.Internal.Builder  as BB
 import qualified Pinch.Internal.FoldList as FL
 import Data.Text (Text)
 import Data.Word (Word8)
-import Debug.Trace
 
 
 -- | Provides an implementation of the Thrift Binary Protocol.
@@ -143,7 +142,7 @@ getIdentifier n = do
       pure bs
 
 parseMessageType :: G.Get MessageType
-parseMessageType = G.getInt8 >>= \code -> trace ("message type: " ++ show code) $ case fromMessageCode code of
+parseMessageType = G.getInt8 >>= \code -> case fromMessageCode code of
     Nothing -> fail $ "Unknown message type: " ++ show code
     Just t -> return t
 

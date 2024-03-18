@@ -33,7 +33,6 @@ import           Pinch.Transport          (Connection, ReadResult (..),
                                            Transport)
 
 import qualified Pinch.Transport          as Transport
-import Debug.Trace
 
 -- | A bi-directional channel to read/write Thrift messages.
 data Channel = Channel
@@ -57,7 +56,7 @@ readMessage :: Channel -> IO (ReadResult Message)
 readMessage chan = Transport.readMessage (cTransportIn chan) $ deserializeMessage' (cProtocolIn chan)
 
 writeMessage :: Channel -> Message -> IO ()
-writeMessage chan msg = Transport.writeMessage (cTransportOut chan) $ serializeMessage (cProtocolOut chan) $ traceShowId msg
+writeMessage chan msg = Transport.writeMessage (cTransportOut chan) $ serializeMessage (cProtocolOut chan) msg
 
 
 newtype ServiceName = ServiceName T.Text

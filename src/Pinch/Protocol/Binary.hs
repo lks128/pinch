@@ -70,7 +70,7 @@ binaryDeserializeMessage = do
         unless (version == 1) $
             fail $ "Unsupported version: " ++ show version
         !typ <- parseType
-        eName <- TE.decodeUtf8' <$> (G.getInt32be >>= G.getBytes . fromIntegral)
+        eName <- trace ("PINCH message type: " ++ show typ) $ TE.decodeUtf8' <$> (G.getInt32be >>= G.getBytes . fromIntegral)
         !name <- case eName of
             Left unicodeErr -> fail $ "Message name isn't valid utf-8" ++ show unicodeErr
             Right name -> pure name

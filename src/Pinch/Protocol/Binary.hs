@@ -73,10 +73,10 @@ binaryDeserializeMessage = trace "binaryDeserializeMessage" $ do
     parseStrict versionAndType = trace "PINCH strict message" $ do
         unless (version == 1) $
             fail $ "Unsupported version: " ++ show version
-        !typ <- parseType
-        !name <- trace ("PINCH message type: " ++ show typ) $ G.getInt32be >>= getIdentifier . fromIntegral
-        Message name typ
-            <$> G.getInt32be
+        Message
+            <$> (G.getInt32be >>= getIdentifier . fromIntegral)
+            <*> parseType
+            <*> G.getInt32be
             <*> binaryDeserialize ttype
       where
         version = trace ("PINCH version: " ++ show code) (0x7fff0000 .&. versionAndType) `shiftR` 16
@@ -87,10 +87,11 @@ binaryDeserializeMessage = trace "binaryDeserializeMessage" $ do
             Just t -> return t
 
     -- name~4 type:1 seqid:4 payload
-    parseNonStrict nameLength = trace "PINCH non-strict message" $ do
-        !name <- getIdentifier $ fromIntegral nameLength
-        !messageType <- traceShow "name" parseMessageType
-        Message name messageType <$> G.getInt32be
+    parseNonStrict nameLength =
+        Message 
+            <$> getIdentifier (fromIntegral nameLength)
+            <*> parseMessageType
+            <*> G.getInt32be
             <*> binaryDeserialize ttype
 
 identifierMaxChunkLen :: Int

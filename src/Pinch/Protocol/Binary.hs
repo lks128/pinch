@@ -88,7 +88,7 @@ binaryDeserializeMessage = trace "binaryDeserializeMessage" $ do
 
     -- name~4 type:1 seqid:4 payload
     parseNonStrict nameLength =
-        Message 
+        Message
             <$> getIdentifier (fromIntegral nameLength)
             <*> parseMessageType
             <*> G.getInt32be

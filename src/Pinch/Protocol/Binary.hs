@@ -139,7 +139,7 @@ getIdentifier n = do
       pure bs
 
 parseMessageType :: G.Get MessageType
-parseMessageType = G.getInt8 >>= \code -> case fromMessageCode $ trace ("PINCH code: " ++ show code) code of
+parseMessageType = G.getInt8 >>= \code -> case fromMessageCode code of
     Nothing -> fail $ "Unknown message type: " ++ show code
     Just t -> return t
 

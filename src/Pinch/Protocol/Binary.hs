@@ -129,7 +129,7 @@ getIdentifier n = do
   let n1 = n - 1
   let numChunks = n1 `div` identifierMaxChunkLen
   chunks <- replicateM numChunks (parseChunk identifierMaxChunkLen)
-  lastChunk <- parseChunk (n `mod` identifierMaxChunkLen)
+  lastChunk <- parseChunk (n1 `mod` identifierMaxChunkLen)
   pure $ TE.decodeUtf8 $ B.concat $ B.singleton c : (chunks <> [lastChunk])
 
   where

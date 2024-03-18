@@ -52,7 +52,3 @@ deserializeValue proto = runGet $ deserializeValue' proto
 -- | Reads a 'Message' and its payload from a ByteString.
 deserializeMessage :: Protocol -> ByteString -> Either String Message
 deserializeMessage proto = runGet $ deserializeMessage' proto
-
--- | Reads a 'Message' and its payload from a ByteString.
-deserializeLazyMessage :: Protocol -> ByteString -> Either String Message
-deserializeLazyMessage proto = runGet $ deserializeMessage' proto

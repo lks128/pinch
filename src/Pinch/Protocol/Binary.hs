@@ -24,7 +24,6 @@ import qualified Data.Char              as C
 import qualified Data.HashMap.Strict    as M
 import qualified Data.Serialize.Get     as G
 import qualified Data.Serialize.IEEE754 as G
-import qualified Data.Text              as T
 import qualified Data.Text.Encoding     as TE
 
 import Pinch.Internal.Builder (Builder)

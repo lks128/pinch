@@ -92,7 +92,7 @@ spec = describe "BinaryProtocol" $ do
         deserialize (serialize someVal) === Right someVal
 
     prop "can roundtrip messages" $ \(msg :: Message) ->
-        deserializeMsg (serializeMsg msg) == Right msg
+        deserializeMsg (serializeMsg msg) === Right msg
 
     it "can read and write booleans" $ readWriteCases
         [ ([0x01], vbool True)

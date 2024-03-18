@@ -35,7 +35,6 @@ import Pinch.Protocol         (Protocol (..))
 
 import qualified Pinch.Internal.Builder  as BB
 import qualified Pinch.Internal.FoldList as FL
-import Debug.Trace
 import Data.Text (Text)
 import Data.Word (Word8)
 
@@ -62,7 +61,7 @@ binarySerializeMessage msg =
     binarySerialize (messagePayload msg)
 
 binaryDeserializeMessage :: G.Get Message
-binaryDeserializeMessage = trace "binaryDeserializeMessage" $ do
+binaryDeserializeMessage = do
     size <- G.getInt32be
     if size < 0
         then parseStrict size
@@ -70,7 +69,7 @@ binaryDeserializeMessage = trace "binaryDeserializeMessage" $ do
   where
     -- versionAndType:4 name~4 seqid:4 payload
     -- versionAndType = version:2 0x00 type:1
-    parseStrict versionAndType = trace "PINCH strict message" $ do
+    parseStrict versionAndType = do
         unless (version == 1) $
             fail $ "Unsupported version: " ++ show version
         Message
@@ -79,10 +78,10 @@ binaryDeserializeMessage = trace "binaryDeserializeMessage" $ do
             <*> G.getInt32be
             <*> binaryDeserialize ttype
       where
-        version = trace ("PINCH version: " ++ show code) (0x7fff0000 .&. versionAndType) `shiftR` 16
+        version = (0x7fff0000 .&. versionAndType) `shiftR` 16
 
         code = fromIntegral $ 0x00ff .&. versionAndType
-        parseType = case fromMessageCode $ trace ("PINCH message code: " ++ show code) code of
+        parseType = case fromMessageCode code of
             Nothing -> fail $ "Unknown message type: " ++ show code
             Just t -> return t
 

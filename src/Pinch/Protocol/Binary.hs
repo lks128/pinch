@@ -69,16 +69,19 @@ binaryDeserializeMessage = do
     parseStrict versionAndType = do
         unless (version == 1) $
             fail $ "Unsupported version: " ++ show version
-        Message
-            <$> TE.decodeUtf8 <$> (G.getInt32be >>= G.getBytes . fromIntegral)
-            <*> typ
-            <*> G.getInt32be
+        !typ <- parseType
+        eName <- TE.decodeUtf8' <$> (G.getInt32be >>= G.getBytes . fromIntegral)
+        !name <- case eName of
+            Left unicodeErr -> fail $ "Message name isn't valid utf-8" ++ show unicodeErr
+            Right name -> pure name
+        Message name typ
+            <$> G.getInt32be
             <*> binaryDeserialize ttype
       where
         version = trace ("PINCH version: " ++ show code) (0x7fff0000 .&. versionAndType) `shiftR` 16
 
         code = fromIntegral $ 0x00ff .&. versionAndType
-        typ = case fromMessageCode $ trace ("PINCH message code: " ++ show code) code of
+        parseType = case fromMessageCode $ trace ("PINCH message code: " ++ show code) code of
             Nothing -> fail $ "Unknown message type: " ++ show code
             Just t -> return t
 

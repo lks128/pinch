@@ -20,9 +20,11 @@ import Data.HashMap.Strict (HashMap)
 import Data.Int            (Int16, Int32, Int8)
 
 import qualified Data.ByteString        as B
+import qualified Data.Char              as C
 import qualified Data.HashMap.Strict    as M
 import qualified Data.Serialize.Get     as G
 import qualified Data.Serialize.IEEE754 as G
+import qualified Data.Text              as T
 import qualified Data.Text.Encoding     as TE
 
 import Pinch.Internal.Builder (Builder)
@@ -35,6 +37,7 @@ import qualified Pinch.Internal.Builder  as BB
 import qualified Pinch.Internal.FoldList as FL
 import Debug.Trace
 import Data.Text (Text)
+import Data.Word (Word8)
 
 
 -- | Provides an implementation of the Thrift Binary Protocol.
@@ -71,7 +74,7 @@ binaryDeserializeMessage = trace "binaryDeserializeMessage" $ do
         unless (version == 1) $
             fail $ "Unsupported version: " ++ show version
         !typ <- parseType
-        !name <- trace ("PINCH message type: " ++ show typ) $ G.getInt32be >>= parseName
+        !name <- trace ("PINCH message type: " ++ show typ) $ G.getInt32be >>= getIdentifier . fromIntegral
         Message name typ
             <$> G.getInt32be
             <*> binaryDeserialize ttype
@@ -83,20 +86,55 @@ binaryDeserializeMessage = trace "binaryDeserializeMessage" $ do
             Nothing -> fail $ "Unknown message type: " ++ show code
             Just t -> return t
 
-    parseName :: Int32 -> G.Get Text
-    parseName nameLength = do
-        !eName <- TE.decodeUtf8' <$> G.getBytes (fromIntegral nameLength)
-        case eName of
-            Left unicodeErr -> fail $ "Message name isn't valid utf-8" ++ show unicodeErr
-            Right name -> pure name
-
     -- name~4 type:1 seqid:4 payload
     parseNonStrict nameLength = trace "PINCH non-strict message" $ do
-        !name <- parseName nameLength
-        !messageType <- parseMessageType
+        !name <- getIdentifier $ fromIntegral nameLength
+        !messageType <- traceShow "name" parseMessageType
         Message name messageType <$> G.getInt32be
             <*> binaryDeserialize ttype
 
+identifierMaxChunkLen :: Int
+identifierMaxChunkLen = 4096
+
+validIdentStart :: Char -> Bool
+validIdentStart '_' = True
+validIdentStart c = C.isAscii c && C.isLetter c
+
+validIdentChar :: Char -> Bool
+validIdentChar '.' = True
+validIdentChar '_' = True
+validIdentChar c = C.isAscii c && (C.isLetter c || C.isDigit c)
+
+w2c :: Word8 -> Char
+w2c = toEnum . fromIntegral
+
+invalidIdentStart :: Char -> G.Get a
+invalidIdentStart c = fail $ "Invalid identifier start: " ++ show c
+
+getIdentifier :: Int -> G.Get Text
+getIdentifier n | n < identifierMaxChunkLen = do
+  bs <- G.getBytes n
+  let Just (c, cs) = B.uncons bs
+  let cChar = w2c c
+  unless (validIdentStart cChar) $ invalidIdentStart cChar
+  unless (B.all (validIdentChar . w2c) cs) $ fail $ "Invalid identifier" ++ show bs
+  pure $ TE.decodeUtf8 bs
+getIdentifier n = do
+  [c] <- B.unpack <$> G.getBytes 1 :: G.Get [Word8]
+  let cChar = w2c c
+  unless (validIdentStart cChar) $ invalidIdentStart cChar
+  let n1 = n - 1
+  let numChunks = n1 `div` identifierMaxChunkLen
+  chunks <- replicateM numChunks (parseChunk identifierMaxChunkLen)
+  lastChunk <- parseChunk (n `mod` identifierMaxChunkLen)
+  pure $ TE.decodeUtf8 $ B.concat $ B.singleton c : (chunks <> [lastChunk])
+
+  where
+    parseChunk :: Int -> G.Get ByteString
+    parseChunk m = do
+      bs <- G.getBytes m
+      unless (B.all (validIdentChar . w2c) bs) $ fail $ "Invalid identifier fragment: " ++ show bs
+      pure bs
 
 parseMessageType :: G.Get MessageType
 parseMessageType = G.getInt8 >>= \code -> case fromMessageCode $ trace ("PINCH code: " ++ show code) code of

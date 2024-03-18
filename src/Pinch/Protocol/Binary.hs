@@ -33,6 +33,7 @@ import Pinch.Protocol         (Protocol (..))
 
 import qualified Pinch.Internal.Builder  as BB
 import qualified Pinch.Internal.FoldList as FL
+import Debug.Trace
 
 
 -- | Provides an implementation of the Thrift Binary Protocol.
@@ -74,10 +75,10 @@ binaryDeserializeMessage = do
             <*> G.getInt32be
             <*> binaryDeserialize ttype
       where
-        version = (0x7fff0000 .&. versionAndType) `shiftR` 16
+        version = trace ("PINCH version: " ++ show code) (0x7fff0000 .&. versionAndType) `shiftR` 16
 
         code = fromIntegral $ 0x00ff .&. versionAndType
-        typ = case fromMessageCode code of
+        typ = case fromMessageCode $ trace ("PINCH message code: " ++ show code) code of
             Nothing -> fail $ "Unknown message type: " ++ show code
             Just t -> return t
 

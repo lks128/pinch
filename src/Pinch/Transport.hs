@@ -17,6 +17,7 @@ import qualified Data.ByteString as BS
 import qualified Data.Serialize.Get as G
 
 import qualified Pinch.Internal.Builder as B
+import Debug.Trace
 
 class Connection c where
   -- | Returns available bytes, or an empty bytestring if EOF was reached.
@@ -52,11 +53,11 @@ framedTransport c = do
   pure $ Transport writeMsg (readMsg readBuffer) where
   writeMsg msg = do
     cPut c $ B.int32BE (fromIntegral $ B.getSize msg) <> msg
-  readMsg readBuffer parser = do
+  readMsg readBuffer parser = trace "TRANSPORT readMsg" $ do
     let 
       frameParser = do 
         size <- G.getInt32be
-        G.isolateLazy (fromIntegral size) parser
+        G.isolateLazy (trace ("readMsg size: " ++ show size) $ fromIntegral size) parser
     
     initial <- readIORef readBuffer
     (leftovers, r) <- runGetWith (cGetSome c) frameParser initial

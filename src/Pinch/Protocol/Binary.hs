@@ -34,6 +34,7 @@ import Pinch.Protocol         (Protocol (..))
 import qualified Pinch.Internal.Builder  as BB
 import qualified Pinch.Internal.FoldList as FL
 import Debug.Trace
+import Data.Text (Text)
 
 
 -- | Provides an implementation of the Thrift Binary Protocol.
@@ -58,7 +59,7 @@ binarySerializeMessage msg =
     binarySerialize (messagePayload msg)
 
 binaryDeserializeMessage :: G.Get Message
-binaryDeserializeMessage = do
+binaryDeserializeMessage = trace "binaryDeserializeMessage" $ do
     size <- G.getInt32be
     if size < 0
         then parseStrict size
@@ -66,14 +67,11 @@ binaryDeserializeMessage = do
   where
     -- versionAndType:4 name~4 seqid:4 payload
     -- versionAndType = version:2 0x00 type:1
-    parseStrict versionAndType = do
+    parseStrict versionAndType = trace "PINCH strict message" $ do
         unless (version == 1) $
             fail $ "Unsupported version: " ++ show version
         !typ <- parseType
-        eName <- trace ("PINCH message type: " ++ show typ) $ TE.decodeUtf8' <$> (G.getInt32be >>= G.getBytes . fromIntegral)
-        !name <- case eName of
-            Left unicodeErr -> fail $ "Message name isn't valid utf-8" ++ show unicodeErr
-            Right name -> pure name
+        !name <- trace ("PINCH message type: " ++ show typ) $ G.getInt32be >>= parseName
         Message name typ
             <$> G.getInt32be
             <*> binaryDeserialize ttype
@@ -85,10 +83,17 @@ binaryDeserializeMessage = do
             Nothing -> fail $ "Unknown message type: " ++ show code
             Just t -> return t
 
+    parseName :: Int32 -> G.Get Text
+    parseName nameLength = do
+        !eName <- TE.decodeUtf8' <$> G.getBytes (fromIntegral nameLength)
+        case eName of
+            Left unicodeErr -> fail $ "Message name isn't valid utf-8" ++ show unicodeErr
+            Right name -> pure name
+
     -- name~4 type:1 seqid:4 payload
-    parseNonStrict nameLength =
+    parseNonStrict nameLength = trace "PINCH non-strict message" $ do
         Message
-            <$> TE.decodeUtf8 <$> G.getBytes (fromIntegral nameLength)
+            <$> parseName nameLength
             <*> parseMessageType
             <*> G.getInt32be
             <*> binaryDeserialize ttype

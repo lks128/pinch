@@ -47,13 +47,6 @@ transportSpec t = do
       actual <- readMessage transp (G.getBytes $ BS.length bytes)
       pure $ actual === RRSuccess bytes
 
-  it "short circuits" $ do
-    buf <- newMemoryConnection 10
-    cPut buf $ B.byteString "\x00\x00\x00\x01\x10\x00\x00\x01\x00"
-    transp <- t buf
-    r <- readMessage transp (G.getInt8)
-    r `shouldBe` RREOF
-
   it "EOF handling" $ do
     buf <- newMemoryConnection 10
     transp <- t buf

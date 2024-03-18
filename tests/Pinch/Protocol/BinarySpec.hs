@@ -9,8 +9,7 @@ import Test.Hspec
 import Test.Hspec.QuickCheck
 import Test.QuickCheck
 
-import qualified Data.ByteString      as B
-import qualified Data.ByteString.Lazy as LB
+import qualified Data.ByteString as B
 
 import Pinch.Arbitrary        ()
 import Pinch.Internal.Builder (runBuilder)
@@ -20,7 +19,6 @@ import Pinch.Internal.Util
 import Pinch.Internal.Value   (SomeValue (..), Value (..))
 import Pinch.Protocol
 import Pinch.Protocol.Binary  (binaryProtocol)
-import Data.Serialize (runGetLazy)
 
 
 serialize :: IsTType a => Value a -> ByteString
@@ -37,10 +35,6 @@ serializeMsg = runBuilder . serializeMessage binaryProtocol
 deserializeMsg :: ByteString -> Either String Message
 deserializeMsg = deserializeMessage binaryProtocol
 
-
--- | Reads a 'Message' and its payload from a ByteString.
-deserializeLazyMessage :: ByteString -> Either String Message
-deserializeLazyMessage = runGetLazy $ deserializeMessage' binaryProtocol
 
 -- | For each given pair, verifies that parsing the byte array yields the
 -- value, and that serializing the value yields the byte array.

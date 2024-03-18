@@ -112,6 +112,8 @@ invalidIdentStart :: Char -> G.Get a
 invalidIdentStart c = fail $ "Invalid identifier start: " ++ show c
 
 getIdentifier :: Int -> G.Get Text
+getIdentifier 0 = fail "Identifier of length 0"
+getIdentifier n | n < 0 = fail "Identifier of length <0"
 getIdentifier n | n < identifierMaxChunkLen = do
   bs <- G.getBytes n
   let Just (c, cs) = B.uncons bs

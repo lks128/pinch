@@ -1,0 +1,6 @@
+packages: .
+
+source-repository-package
+    type: git
+    location: https://github.com/414owen/cereal.git
+    tag: 81128908c05ec81df9b613fc9d95c7decd4ae799

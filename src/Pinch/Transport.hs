@@ -19,6 +19,8 @@ module Pinch.Transport
   , HeaderData(..)
   , Connection(..)
   , ReadResult(..)
+  , writeVarInt
+  , readVarInt
   ) where
 
 import Control.DeepSeq (NFData)
@@ -365,13 +367,7 @@ readVarInt headerEnd = do
   case limit of
     0 -> fail "VarInt fully exceeds bounds of header"
     _ -> do
-      firstByte <- G.getWord8
-      let acc = fromIntegral $ firstByte .&. 0x7f
-      case firstByte of
-        0 -> pure 0 -- almost certainly end-of-header padding
-        _ -> if firstByte .&. 0x80 > 0
-          then pure acc
-          else go (min limit 5 - 1) acc 0
+      go (min limit 5) 0 0
 
   where
     go 0 _ _ = fail "VarInt exceeds bounds of header"
@@ -379,18 +375,21 @@ readVarInt headerEnd = do
       byte <- G.getWord8
       let acc' = acc .|. (fromIntegral (byte .&. 0x7f) `unsafeShiftL` shiftAmt)
       if byte .&. 0x80 > 0
-        then pure acc'
-        else go (limit - 1) acc' (shiftAmt + 7)
+        then go (limit - 1) acc' (shiftAmt + 7)
+        else pure acc'
 
 writeVarInt :: forall a. (Integral a, Bits a) => a -> B.Builder
-writeVarInt n = go (B.word8 $ fromIntegral $ 0x80 .|. (n .&. 0x7f)) $ n `unsafeShiftR` 7
-
+writeVarInt = go . fromIntegral
+  -- Pretty much a copy of serializeVarInt
   where
-  go :: B.Builder -> a -> B.Builder
-  go acc n'
-    | n' == 0 = acc
-    | otherwise =
-        go (B.word8 (fromIntegral n' .&. 0x7f) <> acc) (n' `unsafeShiftR` 7)
+    -- Ensure we don't sign extend
+    go :: a -> B.Builder
+    go n
+      | complement 0x7f .&. n == 0 =
+        B.word8 $ fromIntegral n
+      | otherwise =
+        B.word8 (0x80 .|. (fromIntegral n .&. 0x7f)) <>
+        go (n `shiftR` 7)
 
 -- https://github.com/apache/thrift/blob/master/doc/specs/HeaderFormat.md
 readHeader :: Word32 -> G.Get ParsedHeader

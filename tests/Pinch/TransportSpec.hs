@@ -8,6 +8,7 @@ import Data.IORef            (IORef, newIORef, readIORef, writeIORef, modifyIORe
 import Test.Hspec
 import Test.Hspec.QuickCheck
 import Test.QuickCheck
+import Data.Word
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -15,7 +16,7 @@ import qualified Data.Serialize.Get as G
 
 import Pinch.Arbitrary (SomeByteString(..))
 import Pinch.Transport ( Transport(..), framedTransport, unframedTransport, headerTransport
-                       , Connection(..), ReadResult(..), emptyHeaderData, HeaderData(..))
+                       , Connection(..), ReadResult(..), emptyHeaderData, HeaderData(..), readVarInt, writeVarInt)
 
 import qualified Pinch.Internal.Builder as B
 import Data.Char (ord)
@@ -62,6 +63,32 @@ transportSpec t = do
 
 spec :: Spec
 spec = do
+  describe "readVarInt" $ do
+    it "reads one byte varints correctly" $ do
+      let limitedRead :: G.Get Word8 = readVarInt 1
+      let t = G.runGet limitedRead (BS.pack [ 0x05 ])
+
+      case t of
+        Left err -> fail err
+        Right word -> word `shouldBe` 5
+      
+    it "reads two byte varints correctly" $ do
+      let limitedRead :: G.Get Word8 = readVarInt 2
+      let t = G.runGet limitedRead (BS.pack [ 0x80, 0x01 ])
+
+      case t of
+        Left err -> fail err
+        Right word -> word `shouldBe` 128
+
+  describe "writeVarInt" $ do
+    it "writes one byte varints correctly" $ do
+      let bytes =  B.runBuilder $ writeVarInt (4 :: Word8) 
+      toHex bytes `shouldBe` toHex (BS.pack [ 0x04 ])
+
+    it "writes two byte varints correctly" $ do
+      let bytes =  B.runBuilder $ writeVarInt (128 :: Word8) 
+      toHex bytes `shouldBe` toHex (BS.pack [ 0x80, 0x01 ])
+
   describe "framedTransport" $ do
     transportSpec framedTransport
 
@@ -151,13 +178,13 @@ testHeaderBS = BS.pack $ concat
   , [0x12, 0x34]                   --  6 -- flags
   , [0x00, 0x00, 0x00, 0x42]       --  8 -- sequence number
   , [0x00, 0x04]                   -- 12 -- header size / 4
-  , [0x80]                         -- 14 -- protocol id (0 as varint)
-  , [0x80]                         -- 15 -- num transforms (0 as varint)
-  , [0x81]                         -- 16 -- INFO_KEYVALUE number of headers
-  , [0x81]                         -- 17 -- number of info entries
-  , [0x84]                         -- 18 -- length of key
+  , [0x00]                         -- 14 -- protocol id (0 as varint)
+  , [0x00]                         -- 15 -- num transforms (0 as varint)
+  , [0x01]                         -- 16 -- INFO_KEYVALUE number of headers
+  , [0x01]                         -- 17 -- number of info entries
+  , [0x04]                         -- 18 -- length of key
   , fromIntegral . ord <$> "test"  -- 19
-  , [0x83]                         -- 23 -- length of value
+  , [0x03]                         -- 23 -- length of value
   , fromIntegral . ord <$> "123"   -- 24
   , [0x00, 0x00, 0x00]             -- 27 -- padding
                                    -- 30

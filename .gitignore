@@ -7,3 +7,4 @@ cabal.sandbox.config
 gh-pages
 .stack-work
 .vagrant
+dist-newstyle
